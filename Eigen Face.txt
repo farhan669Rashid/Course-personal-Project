@@ -1,0 +1,48 @@
+import numpy as np
+import cv2
+import os
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report
+
+# Function to load images from a given folder and assign labels based on the file name convention
+def load_images(path_to_images, label):
+    images = []
+    labels = []
+    for filename in os.listdir(path_to_images):
+        if filename.endswith(".png"):  # assuming your images are in jpg format
+            img = cv2.imread(os.path.join(path_to_images, filename), cv2.IMREAD_GRAYSCALE)
+            img = cv2.resize(img, (255, 255))  # resizing to normalize size
+            images.append(img.flatten())  # flattening the image to a 1D array
+            labels.append(label)  # using the given label for all images in this folder
+    return images, labels
+
+# Load datasets
+black_images, black_labels = load_images('/Users/farhanrashid/Downloads/Mugshot V3/Black Offender', label=1)
+non_black_images, non_black_labels = load_images('/Users/farhanrashid/Downloads/Mugshot V3/Non-Black Offender', label=0)
+
+# Combine datasets
+images = np.array(black_images + non_black_images)
+labels = np.array(black_labels + non_black_labels)
+
+# Split datasets into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(images, labels, test_size=0.25, random_state=42)
+
+# Perform PCA (eigenfaces) on the training data
+n_components = 100  # number of eigenfaces
+pca = PCA(n_components=n_components, whiten=True).fit(X_train)
+
+# Transform both training and testing data
+X_train_pca = pca.transform(X_train)
+X_test_pca = pca.transform(X_test)
+
+# Train a classifier (SVM in this case)
+clf = SVC(kernel='rbf', class_weight='balanced')
+clf.fit(X_train_pca, y_train)
+
+# Predict on the testing set
+y_pred = clf.predict(X_test_pca)
+
+# Print the classification report to evaluate the model
+print(classification_report(y_test, y_pred))
